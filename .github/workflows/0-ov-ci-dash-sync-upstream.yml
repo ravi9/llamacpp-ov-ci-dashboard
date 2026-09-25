@@ -8,7 +8,6 @@ on:
 
 permissions:
   contents: write   # to push the merge commit
-  actions: write    # to dispatch the two OpenVINO workflows
 
 concurrency:
   group: ov-ci-dash-sync-upstream
@@ -49,14 +48,15 @@ jobs:
             echo "has_new_commits=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Dispatch with the PAT: runs started by GITHUB_TOKEN do not fire workflow_run, so Log OV CI status would never run.
       - name: Trigger CI (openvino)
         if: steps.merge.outputs.has_new_commits == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
         run: gh workflow run build-openvino.yml --ref master --repo ${{ github.repository }}
 
       - name: Trigger CI (self-hosted OpenVINO backend)
         if: steps.merge.outputs.has_new_commits == 'true'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.SYNC_TOKEN }}
         run: gh workflow run ci-self-hosted-openvino.yml --ref master --repo ${{ github.repository }}
