@@ -20,7 +20,7 @@ import pathlib
 
 DATA_DIR = pathlib.Path(__file__).resolve().parent.parent.parent / "docs" / "0-ov-ci-dashboard" / "data"
 HISTORY_FILE = DATA_DIR / "history.json"
-MAX_RECORDS_PER_JOB = 90  # ~3 months of daily runs
+KEEP_DAYS = 90
 JOB_KEYS = ("name", "conclusion", "status", "html_url")
 
 
@@ -77,14 +77,9 @@ def main():
         history = [r for r in history if not (r["job"] == args.job and r.get("run_id") == args.run_id)]
     history.append(record)
 
-    # Trim per-job so one job's history can't crowd out another's.
-    by_job = {}
-    for r in history:
-        by_job.setdefault(r["job"], []).append(r)
-    trimmed = []
-    for records in by_job.values():
-        trimmed.extend(records[-MAX_RECORDS_PER_JOB:])
-    trimmed.sort(key=lambda r: r["timestamp"])
+    # Keep only the last KEEP_DAYS days of records.
+    cutoff = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=KEEP_DAYS)
+    trimmed = sorted((r for r in history if datetime.datetime.fromisoformat(r["timestamp"]) >= cutoff), key=lambda r: r["timestamp"])
 
     write_json(HISTORY_FILE, trimmed)
     summary = ", ".join(f"{j['name']}={j['conclusion']}" for j in record["jobs"])

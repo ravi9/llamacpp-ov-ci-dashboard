@@ -4,11 +4,12 @@ const UPSTREAM = 'ggml-org/llama.cpp';
 
 // Workflow display names must match upstream exactly (they are the workflow_run trigger keys).
 const WORKFLOWS = [
-  { name: 'CI (openvino)', short: 'CI (openvino)', file: 'build-openvino.yml', hint: 'GitHub-hosted Ubuntu + Windows' },
+  { name: 'CI (openvino)', short: 'CI (openvino)', file: 'build-openvino.yml', hint: 'Self-hosted Ubuntu + GitHub-hosted Windows' },
   { name: 'CI (self-hosted OpenVINO backend)', short: 'CI (self-hosted)', file: 'ci-self-hosted-openvino.yml', hint: 'Self-hosted Intel runner' },
 ];
 
 const HISTORY_DAYS = 45; // days shown in the job history grid
+const PAGE_SIZE = 10;    // rows per page in the runs table
 const RATE_DAYS = 30;    // window for the pass-rate headline
 
 // Conclusion -> display kind. Unknown conclusions fall back to 'fail' so nothing broken looks green.
@@ -185,11 +186,11 @@ function introAndNav() {
   const sep = '<span class="text-slate-300 dark:text-slate-600" aria-hidden="true">|</span>';
   const link = 'inline-flex items-center gap-1.5 font-medium text-indigo-500 dark:text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 hover:underline';
   frag.append($(`<nav aria-label="Sections" class="mb-6 flex flex-wrap justify-center items-center gap-x-2 gap-y-1 rounded-lg border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 px-2 py-2 text-sm w-full">
-    <a class="${link}" href="#latest">${icon('activity', 'w-4 h-4')} Latest CI status</a>
+    <a class="${link}" href="#latest">${icon('activity', 'w-4 h-4')} Latest CI Status</a>
     ${sep}
-    <a class="${link}" href="#jobs">${icon('grid', 'w-4 h-4')} Job history</a>
+    <a class="${link}" href="#jobs">${icon('grid', 'w-4 h-4')} Job History</a>
     ${sep}
-    <a class="${link}" href="#runs">${icon('list', 'w-4 h-4')} Recent runs</a>
+    <a class="${link}" href="#runs">${icon('list', 'w-4 h-4')} Recent Runs</a>
   </nav>`));
   return frag;
 }
@@ -287,7 +288,7 @@ function historyDays(n = HISTORY_DAYS) {
   for (let i = n - 1; i >= 0; i--) {
     const key = dayKey(now - i * 86400000);
     const [y, m, d] = key.split('-').map(Number);
-    const month = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', timeZone: 'UTC' });
+    const month = new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
     days.push({ key, day: d, month, batch: byDay.get(key) || null });
   }
   return days;
@@ -316,7 +317,7 @@ function jobHistory() {
     else months.push({ month: d.month, n: 1 });
   }
   let html = cell('', STICKY + ' self-stretch');
-  html += months.map((m, i) => `<div class="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap overflow-hidden ${i ? 'border-l border-slate-200 dark:border-slate-600 pl-1' : ''}" style="grid-column: span ${m.n}">${m.n >= 2 ? m.month : ''}</div>`).join('');
+  html += months.map((m, i) => `<div class="text-xs font-semibold text-slate-500 dark:text-slate-400 whitespace-nowrap overflow-hidden ${i ? 'border-l border-slate-200 dark:border-slate-600 pl-1' : ''}" style="grid-column: span ${m.n}">${m.n >= 4 ? m.month : ''}</div>`).join('');
   html += cell('');
   html += cell('', STICKY + ' self-stretch');
   html += days.map((d) => `<div class="text-[9px] leading-4 text-center tabular-nums text-slate-400 ${d.batch ? 'font-semibold text-slate-600 dark:text-slate-200' : ''}">${d.day}</div>`).join('');
@@ -360,10 +361,44 @@ function cellBadge(c) {
   return `<span title="${esc(`${c.workflow}: not run on this commit`)}">${badge(null, c.name)}</span>`;
 }
 
-function runsTable() {
-  const rows = batches();
-  if (!rows.length) return $(`<div class="${CARD} p-5 text-sm text-slate-400">No runs recorded yet.</div>`);
-  const tr = rows.map((b) => {
+// "last N months M days (start - end)" between two YYYY-MM-DD dates, calendar months plus leftover days.
+function spanLabel(startKey, endKey) {
+  const [sy, sm, sd] = startKey.split('-').map(Number);
+  const [ey, em, ed] = endKey.split('-').map(Number);
+  let months = (ey - sy) * 12 + (em - sm);
+  let days = ed - sd;
+  if (days < 0) { months--; days += new Date(Date.UTC(ey, em - 1, 0)).getUTCDate(); }
+  const parts = [];
+  if (months > 0) parts.push(`${months} month${months === 1 ? '' : 's'}`);
+  if (days > 0 || months === 0) parts.push(`${days} day${days === 1 ? '' : 's'}`);
+  const fmt = (y, m, d) => new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  return `last ${parts.join(' ')} (${fmt(sy, sm, sd)} - ${fmt(ey, em, ed)})`;
+}
+
+// Sort order for the Result column: worst first when descending.
+const RESULT_RANK = { fail: 4, cancel: 3, skip: 2, pass: 1, none: 0 };
+const RUN_COLS = [
+  { key: 'date',   label: 'Date',    get: (b) => b.timestamp },
+  { key: 'result', label: 'Result',  get: (b) => RESULT_RANK[kindOf(b.conclusion)] },
+  { key: 'jobs',   label: 'Jobs' },
+  { key: 'commit', label: 'Commit',  get: (b) => b.rec.upstream_sha || b.rec.sha || '' },
+  { key: 'logs',   label: 'CI Logs' },
+];
+let runsState = { page: 0, sortCol: 'date', sortDir: 'desc' };
+
+// Sortable (click a header) and paginated table; repaint() redraws only this section.
+function runsTable(repaint) {
+  const all = batches();
+  if (!all.length) return $(`<div class="${CARD} p-5 text-sm text-slate-400">No runs recorded yet.</div>`);
+  const col = RUN_COLS.find((c) => c.key === runsState.sortCol);
+  const dir = runsState.sortDir === 'asc' ? 1 : -1;
+  all.sort((a, b) => { const x = col.get(a), y = col.get(b); return (x < y ? -1 : x > y ? 1 : 0) * dir; });
+
+  const pages = Math.ceil(all.length / PAGE_SIZE);
+  runsState.page = Math.min(Math.max(runsState.page, 0), pages - 1);
+  const slice = all.slice(runsState.page * PAGE_SIZE, (runsState.page + 1) * PAGE_SIZE);
+
+  const tr = slice.map((b) => {
     const logs = WORKFLOWS.filter((w) => b.runs[w.name])
       .map((w) => `<a class="${LINK} whitespace-nowrap" target="_blank" rel="noopener" title="${esc(w.name)}" href="${esc(b.runs[w.name].run_url)}">${esc(w.short)} ${icon('external', 'w-3 h-3')}</a>`)
       .join('<br>');
@@ -375,13 +410,49 @@ function runsTable() {
     <td class="py-2.5 pl-3 pr-4 text-xs leading-6">${logs}</td>
   </tr>`;
   }).join('');
-  return $(`<div class="overflow-x-auto ${CARD}"><table class="w-full min-w-[760px] text-sm">
-    <thead><tr class="text-xs uppercase tracking-wide text-slate-400 text-left">
-      <th class="py-2.5 pl-4 pr-3">Date</th><th class="py-2.5 px-3">Result</th>
-      <th class="py-2.5 px-3">Jobs</th><th class="py-2.5 px-3">Commit</th><th class="py-2.5 pl-3 pr-4">CI workflow logs</th>
-    </tr></thead>
+  const arrow = (k) => (runsState.sortCol === k ? (runsState.sortDir === 'asc' ? ' &#9650;' : ' &#9660;') : '');
+  const ths = RUN_COLS.map((c, i) => {
+    const pad = i === 0 ? 'pl-4 pr-3' : i === RUN_COLS.length - 1 ? 'pl-3 pr-4' : 'px-3';
+    return c.get
+      ? `<th data-k="${c.key}" class="py-2.5 ${pad} cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400">${c.label}${arrow(c.key)}</th>`
+      : `<th class="py-2.5 ${pad}">${c.label}</th>`;
+  }).join('');
+  const table = $(`<div class="overflow-x-auto ${CARD}"><table class="w-full min-w-[760px] text-sm">
+    <thead><tr class="text-xs uppercase tracking-wide text-slate-400 text-left">${ths}</tr></thead>
     <tbody>${tr}</tbody>
   </table></div>`);
+  // Header click: toggle direction on the same column, else sort the new column descending. Back to page 1.
+  table.querySelectorAll('th[data-k]').forEach((th) => th.onclick = () => {
+    const k = th.dataset.k;
+    runsState.sortDir = runsState.sortCol === k && runsState.sortDir === 'desc' ? 'asc' : 'desc';
+    runsState.sortCol = k;
+    runsState.page = 0;
+    repaint();
+  });
+
+  const atFirst = runsState.page === 0, atLast = runsState.page >= pages - 1;
+  const btn = (p, glyph, label, disabled) => `<button type="button" data-p="${p}" aria-label="${label}" title="${label}" class="px-2 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-slate-200 disabled:opacity-40"${disabled ? ' disabled' : ''}>${glyph}</button>`;
+  const pager = $(`<div class="flex items-center justify-between mt-3 text-sm text-slate-600 dark:text-slate-300">
+    <span>${all.length} runs</span>
+    <span class="flex items-center gap-1">
+      ${btn('first', '&laquo;', 'First page', atFirst)}
+      ${btn('prev', '&lsaquo;', 'Previous page', atFirst)}
+      <input data-p="num" type="number" min="1" max="${pages}" value="${runsState.page + 1}" aria-label="Page number" class="w-14 text-center px-1 py-1 rounded border border-slate-200 dark:border-slate-600 bg-white dark:bg-slate-800 dark:text-slate-200 tabular-nums">
+      <span class="px-1">/ ${pages}</span>
+      ${btn('next', '&rsaquo;', 'Next page', atLast)}
+      ${btn('last', '&raquo;', 'Last page', atLast)}
+    </span>
+  </div>`);
+  const go = (p) => { runsState.page = p; repaint(); };
+  pager.querySelector('[data-p="first"]').onclick = () => go(0);
+  pager.querySelector('[data-p="prev"]').onclick = () => go(runsState.page - 1);
+  pager.querySelector('[data-p="next"]').onclick = () => go(runsState.page + 1);
+  pager.querySelector('[data-p="last"]').onclick = () => go(pages - 1);
+  pager.querySelector('[data-p="num"]').onchange = (e) => go((parseInt(e.target.value, 10) || 1) - 1);
+
+  const frag = document.createDocumentFragment();
+  frag.append(table, pager);
+  return frag;
 }
 
 function render() {
@@ -396,10 +467,17 @@ function render() {
   app.append(titleRow, freshnessBanner(newest), introAndNav(), headline(newest));
 
   const asOf = newest ? ` Last run: ${fmtDate(newest.timestamp)}.` : '';
-  app.append(section('activity', 'Latest CI status', `Most recent run of each workflow, per job.${asOf}`, 'latest'), latestCards());
-  app.append(section('grid', 'Job history', `Last ${HISTORY_DAYS} days, latest run per day, newest on the right. Dates in Pacific time. Click a cell to open the job log.`, 'jobs'), jobHistory());
+  app.append(section('activity', 'Latest CI Status', `Most recent run of each workflow, per job.${asOf}`, 'latest'), latestCards());
+  app.append(section('grid', 'Job History', `Last ${HISTORY_DAYS} days, latest run per day, newest on the right. Click a cell to open the job log.`, 'jobs'), jobHistory());
 
-  app.append(section('list', 'Recent runs', 'One row per tested commit, all jobs across all OpenVINO CI workflows, newest first.', 'runs'), runsTable());
+  // Span of the runs in the table: oldest to newest recorded run (history keeps the last 90 days).
+  const oldest = state.history[state.history.length - 1];
+  const span = newest ? ` - ${spanLabel(dayKey(oldest.timestamp), dayKey(newest.timestamp))}` : '';
+  app.append(section('list', 'Recent Runs', `History of every OpenVINO CI run tested with upstream commit${span}.`, 'runs'));
+  const mount = $(`<div></div>`);
+  const paint = () => { mount.replaceChildren(runsTable(paint)); };
+  paint();
+  app.append(mount);
 }
 
 (async function init() {
