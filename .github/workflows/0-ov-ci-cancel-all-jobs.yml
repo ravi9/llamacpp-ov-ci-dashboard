@@ -1,0 +1,82 @@
+name: "[OV CI Dashboard] Cancel all running and queued jobs"
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "cancel" to confirm you want to cancel all running and queued runs'
+        required: true
+        type: string
+
+permissions:
+  actions: write   # required to cancel workflow runs
+  contents: read   # required to read repo info
+
+jobs:
+  cancel-all:
+    runs-on: ubuntu-24.04
+    if: inputs.confirm == 'cancel'
+    steps:
+      - name: Cancel all queued and in-progress runs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          SELF_RUN_ID: ${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          echo "Fetching queued and in-progress runs for $REPO ..."
+          echo "(excluding this run: $SELF_RUN_ID)"
+          echo ""
+
+          # List runs with human-readable fields, filter to queued/in_progress,
+          # and exclude this run itself. Output is TSV: id<TAB>workflow<TAB>started<TAB>url.
+          # gh --jq has no --arg, so read this run's id from the environment.
+          RUNS=$(gh run list \
+            --repo "$REPO" \
+            --limit 1000 \
+            --json databaseId,status,workflowName,startedAt,url \
+            --jq '
+              .[]
+              | select(.status == "queued" or .status == "in_progress")
+              | select((.databaseId | tostring) != env.SELF_RUN_ID)
+              | [.databaseId, .workflowName, .startedAt, .url]
+              | @tsv')
+
+          if [ -z "$RUNS" ]; then
+            echo "No queued or in-progress runs found. Nothing to do."
+            exit 0
+          fi
+
+          COUNT=$(echo "$RUNS" | wc -l | tr -d ' ')
+          echo "Found $COUNT run(s) to cancel."
+
+          CANCELLED=0
+          FAILED=0
+
+          while IFS=$'\t' read -r run_id run_name run_started run_url; do
+            [ -z "$run_id" ] && continue
+            printf 'Cancelling: %s  (%s, started %s)\n' "$run_id" "$run_name" "$run_started"
+            if gh run cancel "$run_id" --repo "$REPO"; then
+              CANCELLED=$((CANCELLED + 1))
+            else
+              echo "  -> failed to cancel $run_id"
+              FAILED=$((FAILED + 1))
+            fi
+          done <<< "$RUNS"
+
+          echo ""
+          echo "Cancelled: $CANCELLED"
+          echo "Failed:    $FAILED"
+
+          {
+            echo "### Cancel-all summary"
+            echo ""
+            echo "- Runs found: $COUNT"
+            echo "- Cancelled: $CANCELLED"
+            echo "- Failed: $FAILED"
+            echo ""
+            echo "| Run ID | Workflow | Started (UTC) |"
+            echo "|---|---|---|"
+            echo "$RUNS" | awk -F'\t' '{t = $3; sub("T", " ", t); sub("Z", "", t); printf "| [%s](%s) | %s | %s |\n", $1, $4, $2, t}'
+          } >> "$GITHUB_STEP_SUMMARY"

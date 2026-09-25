@@ -1,0 +1,98 @@
+name: "[OV CI Dashboard] Log OV CI status"
+
+# Fires whenever the (unmodified, upstream) OpenVINO workflows finish.
+# Reads the run's outcome and its per-job results, appends them to the
+# dashboard's JSON data (docs/0-ov-ci-dashboard/) and redeploys the Pages site.
+
+on:
+  workflow_run:
+    workflows:
+      - "CI (openvino)"
+      - "CI (self-hosted OpenVINO backend)"
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  log-ov-ci-status:
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      RUN_ID: ${{ github.event.workflow_run.id }}
+      RUN_NAME: ${{ github.event.workflow_run.name }}
+      RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+      RUN_URL: ${{ github.event.workflow_run.html_url }}
+      HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+      RUN_STARTED: ${{ github.event.workflow_run.run_started_at }}
+    steps:
+      # Check out the branch tip, not the event sha: a run queued behind the pages
+      # concurrency group must see data already pushed by the previous run.
+      - name: Checkout this repo
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      # Manual dispatch has no workflow_run event: skip recording, only re-publish docs/0-ov-ci-dashboard/.
+      - name: Fetch per-job results
+        if: github.event_name == 'workflow_run'
+        run: |
+          gh api "/repos/$REPO/actions/runs/$RUN_ID/jobs?per_page=100" \
+            --jq '[.jobs[] | {name, conclusion, status, html_url}]' > /tmp/jobs.json
+          cat /tmp/jobs.json
+
+      # The daily sync dispatches CI on its "Merge upstream master" commit; the second
+      # parent is the upstream ggml-org/llama.cpp commit under test. Manual runs on
+      # other commits get no upstream link.
+      - name: Find upstream commit
+        id: upstream
+        if: github.event_name == 'workflow_run'
+        run: |
+          upstream=$(gh api "/repos/$REPO/commits/$HEAD_SHA" --jq '.parents[1].sha // ""')
+          echo "Upstream commit: ${upstream:-not found}"
+          echo "sha=$upstream" >> "$GITHUB_OUTPUT"
+
+      - name: Record result
+        if: github.event_name == 'workflow_run'
+        run: |
+          python3 scripts/0-ov-ci-dashboard/record_result.py \
+            --job "$RUN_NAME" \
+            --status "$RUN_CONCLUSION" \
+            --sha "$HEAD_SHA" \
+            --upstream-sha "${{ steps.upstream.outputs.sha }}" \
+            --run-url "$RUN_URL" \
+            --run-id "$RUN_ID" \
+            --timestamp "$RUN_STARTED" \
+            --jobs-file /tmp/jobs.json
+
+      - name: Commit and push data
+        if: github.event_name == 'workflow_run'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/0-ov-ci-dashboard/data/history.json
+          git commit -m "Record CI result: $RUN_NAME = $RUN_CONCLUSION" || echo "no changes to commit"
+          git pull --rebase
+          git push
+
+      - name: Upload dashboard folder as Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: docs/0-ov-ci-dashboard
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

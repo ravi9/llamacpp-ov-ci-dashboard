@@ -1,0 +1,62 @@
+name: "[OV CI Dashboard] Sync upstream + trigger OV CI"
+
+on:
+  schedule:
+    # Daily 9:00 PM PST (UTC-8) = 05:00 UTC next day.
+    - cron: '0 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # to push the merge commit
+  actions: write    # to dispatch the two OpenVINO workflows
+
+concurrency:
+  group: ov-ci-dash-sync-upstream
+  cancel-in-progress: false
+
+jobs:
+  sync-and-trigger-ov-ci:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout mirror (master)
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          fetch-depth: 0          # need full history for a real merge
+          token: ${{ secrets.SYNC_TOKEN }}
+
+      - name: Configure git identity
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Merge upstream master into mirror master
+        id: merge
+        run: |
+          git remote add upstream https://github.com/ggml-org/llama.cpp.git
+          git fetch upstream master
+
+          BEFORE=$(git rev-parse HEAD)
+
+          git merge --no-edit -m "Merge upstream master [skip ci]" upstream/master
+
+          AFTER=$(git rev-parse HEAD)
+
+          if [ "$BEFORE" != "$AFTER" ]; then
+            echo "has_new_commits=true"  >> "$GITHUB_OUTPUT"
+            git push origin master
+          else
+            echo "has_new_commits=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger CI (openvino)
+        if: steps.merge.outputs.has_new_commits == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run build-openvino.yml --ref master --repo ${{ github.repository }}
+
+      - name: Trigger CI (self-hosted OpenVINO backend)
+        if: steps.merge.outputs.has_new_commits == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run ci-self-hosted-openvino.yml --ref master --repo ${{ github.repository }}

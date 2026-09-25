@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Force HTML revalidation so a redeploy shows immediately (Pages serves index.html with max-age=600). -->
+  <meta http-equiv="Cache-Control" content="no-cache, must-revalidate" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <title>llama.cpp OpenVINO Backend CI Status Dashboard</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%234f46e5'/%3E%3Cpath d='M4 8.5 7 11.5 12 5' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E" />
+  <!-- Pre-paint theme: dark by default, only an explicit stored 'light' opts out. Runs before paint to avoid a flash. -->
+  <script>
+    (function () {
+      try {
+        if (localStorage.getItem('theme') !== 'light') document.documentElement.classList.add('dark');
+      } catch (e) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { darkMode: 'class' };</script>
+  <style>
+    table, .tabular-nums { font-variant-numeric: tabular-nums; }
+    a:focus-visible, button:focus-visible {
+      outline: 2px solid #6366f1; outline-offset: 2px; border-radius: 4px;
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased dark:bg-slate-900 dark:text-slate-100 transition-colors">
+  <div id="app" class="max-w-5xl mx-auto px-4 py-6 sm:py-10"></div>
+  <footer class="border-t border-slate-200 dark:border-slate-700 mt-8 py-6 text-center text-sm text-slate-500 dark:text-slate-400">
+    <div class="max-w-5xl mx-auto px-4 flex flex-wrap justify-center items-center gap-x-4 gap-y-1">
+      <a class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline" target="_blank" rel="noopener" href="https://github.com/ravi9/llamacpp-ov-ci-dashboard">Llama.cpp OV CI dashboard repo</a>
+      <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">|</span>
+      <a class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline" target="_blank" rel="noopener" href="https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/OPENVINO.md">llama.cpp OpenVINO backend</a>
+      <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">|</span>
+      <a class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline" target="_blank" rel="noopener" href="https://ravi9.github.io/llamacpp-metrics/">Llama.cpp releases download metrics</a>
+      <span class="text-slate-300 dark:text-slate-600" aria-hidden="true">|</span>
+      <a class="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 hover:underline" target="_blank" rel="noopener" href="https://docs.openvino.ai/">OpenVINO docs</a>
+    </div>
+  </footer>
+  <script src="app.js"></script>
+</body>
+</html>
