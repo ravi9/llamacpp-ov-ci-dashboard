@@ -238,5 +238,28 @@
         "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/36706230432/job/109857025496"
       }
     ]
+  },
+  {
+    "job": "CI (openvino)",
+    "status": "failure",
+    "sha": "05bc32c828d71b4244083ec7dd4af6f70c5366e3",
+    "upstream_sha": "b56f34ab130b35c038ffa0acc81cb998a8b5f87c",
+    "run_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/36855829205",
+    "run_id": "36855829205",
+    "timestamp": "2026-10-01T11:30:44Z",
+    "jobs": [
+      {
+        "name": "openvino-windows-2022",
+        "conclusion": "failure",
+        "status": "completed",
+        "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/36855829205/job/110347953918"
+      },
+      {
+        "name": "ubuntu-24-openvino",
+        "conclusion": "success",
+        "status": "completed",
+        "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/36855829205/job/110347953613"
+      }
+    ]
   }
 ]
