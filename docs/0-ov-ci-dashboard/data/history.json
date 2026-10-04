@@ -381,5 +381,22 @@
         "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/37197419163/job/111422048425"
       }
     ]
+  },
+  {
+    "job": "CI (self-hosted OpenVINO backend)",
+    "status": "failure",
+    "sha": "d68928ec374bd22333e8e1391146cb12e5b8eea0",
+    "upstream_sha": "0504396140d1c882f5f6ee34466a42db7ae90114",
+    "run_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/37197420549",
+    "run_id": "37197420549",
+    "timestamp": "2026-10-04T11:03:29Z",
+    "jobs": [
+      {
+        "name": "gpu-openvino-low-perf",
+        "conclusion": "failure",
+        "status": "completed",
+        "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/37197420549/job/111422052706"
+      }
+    ]
   }
 ]
