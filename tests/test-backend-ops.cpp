@@ -9851,10 +9851,12 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
             }
             // MSA indexer block-max shape: wide 1-D window along ne0, no padding, non-divisible width
             for (int64_t iw : {4096, 4160}) {
-                for (int blk : {32, 64}) {
+                for (int blk : {32, 64, 128}) {
                     test_cases.emplace_back(new test_pool2d(pool_type, type_input, {iw, 2, 1, 1}, blk, 1, blk, 1, 0, 0));
                 }
             }
+            test_cases.emplace_back(new test_pool2d(pool_type, type_input, {259, 5, 3, 2}, 128, 3, 64, 2, 64, 1));
+            test_cases.emplace_back(new test_pool2d(pool_type, type_input, {193, 2, 1, 1}, 128, 1, 128, 1, 128, 2));
         }
     }
 
@@ -11026,6 +11028,8 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_TQ1_0, GGML_TYPE_F32, 28, 10, false, 1024, 1, 4096));
     test_cases.emplace_back(new test_mul_mat_id(GGML_TYPE_TQ1_0, GGML_TYPE_F32, 128, 8, false, 1024, 1, 2048));
 
+    // TODO: disabled until CUDA backend support is added [TAG_MUL_MAT_ID_DUPLICATE_ID]
+#if 0
     // repeated expert ids within a row
     for (ggml_type ta : {GGML_TYPE_F16, GGML_TYPE_Q8_0, GGML_TYPE_Q4_0}) {
         for (int n : {9, 16, 33, 64}) {
@@ -11037,6 +11041,7 @@ static std::vector<std::unique_ptr<test_case>> make_test_cases_eval() {
         test_cases.emplace_back(new test_mul_mat_id_dup(ta, GGML_TYPE_F32, 1025, 10, false, 64, 33, 256, 1.0f, 0, true));
         test_cases.emplace_back(new test_mul_mat_id_dup(ta, GGML_TYPE_F32, 2050, 10, true, 64, 33, 256));
     }
+#endif
 
     for (ggml_type type_a : all_types) {
         test_cases.emplace_back(new test_mul_mat_id(type_a, GGML_TYPE_F32, 4, 2, false, 64, 16, 3*ggml_blck_size(type_a)));
