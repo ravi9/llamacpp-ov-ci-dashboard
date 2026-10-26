@@ -14,7 +14,20 @@ Every day, this repo syncs to `ggml-org/llama.cpp`'s `master` branch and runs `b
 
 ---
 
-## Setup: `SYNC_TOKEN`
+## Links
+
+- [LlamaCPP OpenVINO CI Dashboard](https://ravi9.github.io/llamacpp-ov-ci-dashboard/)
+- [OpenVINO Docs](https://docs.openvino.ai/)
+- [LlamaCPP OpenVINO Backend Docs](https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/OPENVINO.md)
+- [LlamaCPP Download Metrics Dashboard](https://github.com/ravi9/llamacpp-metrics)
+
+---
+
+## Troubleshooting
+
+<details>
+<summary><sub>Daily sync fails at "Checkout mirror (master)": renew <code>SYNC_TOKEN</code></sub></summary>
+<sub>
 
 The daily sync workflow needs a personal access token (PAT) in the `SYNC_TOKEN` secret. It uses the token to push the upstream merge (which can change `.github/workflows/*`) and to start the OpenVINO CI workflows. Runs started with the built-in `GITHUB_TOKEN` do not trigger the dashboard update, so a PAT is required.
 
@@ -22,7 +35,7 @@ If the sync fails at "Checkout mirror (master)" with `fatal: could not read User
 
 Do not paste the token into chats, issues or files.
 
-### 1. Create the token
+**1. Create the token**
 
 1. Open <https://github.com/settings/personal-access-tokens/new> (profile photo -> Settings -> Developer settings -> Personal access tokens -> Fine-grained tokens -> Generate new token).
 2. **Token name:** `llamacpp-ov-ci-dashboard sync`
@@ -37,7 +50,7 @@ Do not paste the token into chats, issues or files.
 
 A classic PAT also works: Tokens (classic) -> Generate new token (classic), scopes `repo` and `workflow`.
 
-### 2. Save it as the secret
+**2. Save it as the secret**
 
 - **Web:** <https://github.com/ravi9/llamacpp-ov-ci-dashboard/settings/secrets/actions> -> pencil next to `SYNC_TOKEN` (or **New repository secret** the first time) -> paste -> **Update secret**.
 - **CLI:** run the command below in your own terminal and paste the token at the prompt, so it stays out of shell history:
@@ -46,7 +59,7 @@ A classic PAT also works: Tokens (classic) -> Generate new token (classic), scop
   gh secret set SYNC_TOKEN --repo ravi9/llamacpp-ov-ci-dashboard
   ```
 
-### 3. Verify
+**3. Verify**
 
 1. Start the sync: Actions -> "[OV CI Dashboard] Sync upstream + trigger OV CI" -> **Run workflow** on `master`, or:
 
@@ -58,8 +71,5 @@ A classic PAT also works: Tokens (classic) -> Generate new token (classic), scop
 3. When each CI run finishes, "[OV CI Dashboard] Log OV CI status" runs and updates the dashboard.
 4. Optional: delete the old token under Settings -> Developer settings -> Personal access tokens.
 
----
-- [LlamaCPP OpenVINO CI Dashboard](https://ravi9.github.io/llamacpp-ov-ci-dashboard/)
-- [OpenVINO Docs](https://docs.openvino.ai/)
-- [LlamaCPP OpenVINO Backend Docs](https://github.com/ggml-org/llama.cpp/blob/master/docs/backend/OPENVINO.md)
-- [LlamaCPP Download Metrics Dashboard](https://github.com/ravi9/llamacpp-metrics)
+</sub>
+</details>
