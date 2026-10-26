@@ -26,8 +26,7 @@ Every day, this repo syncs to `ggml-org/llama.cpp`'s `master` branch and runs `b
 ## Troubleshooting
 
 <details>
-<summary><sub>Daily sync fails at "Checkout mirror (master)": renew <code>SYNC_TOKEN</code></sub></summary>
-<sub>
+<summary>Daily sync fails at "Checkout mirror (master)": renew <code>SYNC_TOKEN</code></summary>
 
 The daily sync workflow needs a personal access token (PAT) in the `SYNC_TOKEN` secret. It uses the token to push the upstream merge (which can change `.github/workflows/*`) and to start the OpenVINO CI workflows. Runs started with the built-in `GITHUB_TOKEN` do not trigger the dashboard update, so a PAT is required.
 
@@ -71,5 +70,4 @@ A classic PAT also works: Tokens (classic) -> Generate new token (classic), scop
 3. When each CI run finishes, "[OV CI Dashboard] Log OV CI status" runs and updates the dashboard.
 4. Optional: delete the old token under Settings -> Developer settings -> Personal access tokens.
 
-</sub>
 </details>
