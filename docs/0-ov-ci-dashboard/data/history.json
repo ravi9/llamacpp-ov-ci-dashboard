@@ -2240,6 +2240,29 @@
     ]
   },
   {
+    "job": "CI (openvino)",
+    "status": "cancelled",
+    "sha": "1a3fa7f8a3bcfd9f78cce65074fe2d901ce0822d",
+    "upstream_sha": "4c4a0f0a4246bc36a3724d12238d5624714dcb2f",
+    "run_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/44704579151",
+    "run_id": "44704579151",
+    "timestamp": "2026-11-20T08:41:38Z",
+    "jobs": [
+      {
+        "name": "openvino-windows-2022",
+        "conclusion": "cancelled",
+        "status": "completed",
+        "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/44704579151/job/136180882507"
+      },
+      {
+        "name": "ubuntu-24-openvino",
+        "conclusion": "cancelled",
+        "status": "completed",
+        "html_url": "https://github.com/ravi9/llamacpp-ov-ci-dashboard/actions/runs/44704579151/job/136180883059"
+      }
+    ]
+  },
+  {
     "job": "CI (self-hosted OpenVINO backend)",
     "status": "cancelled",
     "sha": "1a3fa7f8a3bcfd9f78cce65074fe2d901ce0822d",
