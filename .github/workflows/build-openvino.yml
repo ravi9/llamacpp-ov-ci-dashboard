@@ -41,7 +41,7 @@ env:
 
 jobs:
   ubuntu-24-openvino:
-    runs-on: [self-hosted, Linux, OpenVINO]
+    runs-on: [self-hosted, Linux, OpenVINO, PTL]
 
     env:
       # Sync versions in build-openvino.yml, ci-self-hosted-openvino.yml, release.yml, release-publish.yml, build-cache.yml, .devops/openvino.Dockerfile, docs/backend/OPENVINO.md
